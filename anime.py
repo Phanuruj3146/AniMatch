@@ -1,11 +1,25 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
+import requests
+from bs4 import BeautifulSoup
+from anime_extractor import extract_anime_titles, extract_anime_url
 
-mood_selc = open('categorymd')  # opening mood select file
-mooods = list(mood_selc)  # turn them into a list to loop through
+# anime_clean.csv
+csv_file_path = 'anime_clean.csv'
+# Extract anime titles using the separate module
+anime_titles = extract_anime_titles(csv_file_path)
+anime_urls = extract_anime_url(csv_file_path)
+
+url = ''
 
 def display_dt():
+    # request allow you to send HTTP request
+    response = requests.get(url)
+    soup = BeautifulSoup(response.content, 'html.parser')  # main scraping
+
+
+    b = 6.39
 
     # Dataframe Anime list 
     df = pd.DataFrame({
@@ -20,7 +34,16 @@ def display_dt():
     st.title("Animatch")
     
     with st.expander("Tap to select an Animes 🌀", expanded=True):
-        choice = st.selectbox("", mooods)
+        choice = st.selectbox("", anime_titles)
+        
+        # Get the corresponding URL for the selected anime
+        selected_url = anime_urls[anime_titles.index(choice)]
+
+        # Scrap from corresponded url
+        # if selected_url in anime_urls:
+        #     score = soup.find()
+        
+        # Recommend button
         is_clic = st.button("Recommends")
 
     if is_clic:
@@ -34,9 +57,22 @@ def display_dt():
         st.text("")
         st.text("")
 
-        st.subheader("JJK")
-        st.bar_chart(chart_data, x="Rating", y=["Scores"], color=["#0000FF"] )
+        st.header(choice)
+        with st.container():
+            # st.markdown("Scores:   {}".format(b,b))
+            st.metric("Scores: ", b)
+
+            st.metric("Ranked", 1200)
+            
+            st.metric("Popularity", 5000)
+
+            st.write("Members: ", 1)
+            ''' '''
+            st.write("Favourite: ", 1)
+            
+        # st.bar_chart(chart_data, x="Rating", y=["Scores"], color=["#0000FF"] )
     
+
     st.markdown(
         """
         <style>
@@ -59,6 +95,7 @@ def display_dt():
         """,
         unsafe_allow_html=True,
     )
+
 
 with st.container():
     display_dt()
