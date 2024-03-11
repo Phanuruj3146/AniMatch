@@ -71,163 +71,162 @@ def display_dt():
     url = ''
     b = 6.39
 
-    # Dataframe Anime list 
-    dff = pd.DataFrame({
-        "Anime": ["a", "b", "c", "d", "e", "f"],
-        "Similarity Scores (based on users)": [0.1264, 0.1244, 0.2344, 0.1944, 0.4422, 0.3012],
-    })
-
+    rad = st.sidebar.radio("Navigation", ["Main page", "User ID page"])
 
     ################## Main UI layout ##################
 
-    st.title("Animatch")
-    with st.expander("Tap to select an Animes 🌀", expanded=True):
-        choice = st.selectbox("", anime_titles)
-        
-        # Get the corresponding URL for the selected anime
-        selected_url = anime_urls[anime_titles.index(choice)]
+    if rad == "Main page":
+        st.title("Animatch")
+        with st.expander("Tap to select an Animes 🌀", expanded=True):
+            choice = st.selectbox("", anime_titles)
+            
+            # Get the corresponding URL for the selected anime
+            selected_url = anime_urls[anime_titles.index(choice)]
 
-        # Scrap from corresponded url
-        if selected_url in anime_urls:
-            # Find where new point is locate in which cluster and find distance between points from chosen point
-            anime_name = choice
-            if anime_name in df_with_id['title'].values:
-                row = df_with_id[df_with_id['title'] == anime_name].copy().drop_duplicates(subset='anime_id')
+            # Scrap from corresponded url
+            if selected_url in anime_urls:
+                # Find where new point is locate in which cluster and find distance between points from chosen point
+                anime_name = choice
+                if anime_name in df_with_id['title'].values:
+                    row = df_with_id[df_with_id['title'] == anime_name].copy().drop_duplicates(subset='anime_id')
+                    
+                    # print(row)
+
+                    encoded = row[['score','genres','studios']].values
+                    # print(encoded)
+
+                    # new_point = np.array([[row[['score','genres','studios']].values]])
+                    nearest_cluster  = model.predict(encoded)
+
+                    # current data is from 696
+                    cluster_recommended_data = df[model.labels_ == nearest_cluster]
+
+                    top5 = []
+
+                    for index, row in cluster_recommended_data.iterrows():
+                        cluster_point = np.array([[row['score'], row['genres'], row['studios']]])
+                        distance = cdist(encoded, cluster_point)
+                        
+                        # Add the index and distance to top5 list
+                        top5.append((index, distance[0][0]))
+
+                    # Sort the top5 list based on distance
+                    top5.sort(key=lambda x: x[1])
+
+                    # Keep only the top 5 unique distances and remove duplicates
+                    unique_distances = set()
+                    filtered_top5 = []
+                    for idx, dist in top5:
+                        if dist not in unique_distances:
+                            filtered_top5.append((idx, dist))
+                            unique_distances.add(dist)
+                        if len(filtered_top5) >= 5:
+                            break
+
+                    # print(filtered_top5)
+                        
+                    top5_ids = []
+                    for item in filtered_top5:
+                        top5_ids.append(item[0])
+
+                    final_df = df_with_id.loc[top5_ids].copy()
+                    final_df = final_df.drop_duplicates(subset='anime_id')
+
+
+                # Append image
                 
-                # print(row)
-
-                encoded = row[['score','genres','studios']].values
-                # print(encoded)
-
-                # new_point = np.array([[row[['score','genres','studios']].values]])
-                nearest_cluster  = model.predict(encoded)
-
-                # current data is from 696
-                cluster_recommended_data = df[model.labels_ == nearest_cluster]
-
-                top5 = []
-
-                for index, row in cluster_recommended_data.iterrows():
-                    cluster_point = np.array([[row['score'], row['genres'], row['studios']]])
-                    distance = cdist(encoded, cluster_point)
-                    
-                    # Add the index and distance to top5 list
-                    top5.append((index, distance[0][0]))
-
-                # Sort the top5 list based on distance
-                top5.sort(key=lambda x: x[1])
-
-                # Keep only the top 5 unique distances and remove duplicates
-                unique_distances = set()
-                filtered_top5 = []
-                for idx, dist in top5:
-                    if dist not in unique_distances:
-                        filtered_top5.append((idx, dist))
-                        unique_distances.add(dist)
-                    if len(filtered_top5) >= 5:
-                        break
-
-                # print(filtered_top5)
-                    
-                top5_ids = []
-                for item in filtered_top5:
-                    top5_ids.append(item[0])
-
-                final_df = df_with_id.loc[top5_ids].copy()
-                final_df = final_df.drop_duplicates(subset='anime_id')
-
-
-            # Append image
+                url += selected_url
             
-            url += selected_url
-        
-            # request allow you to send HTTP request
-            response = requests.get(url)
-            soup = BeautifulSoup(response.content, 'html.parser')  # main scraping
+                # request allow you to send HTTP request
+                response = requests.get(url)
+                soup = BeautifulSoup(response.content, 'html.parser')  # main scraping
 
-            # Elements to display under anime statistics
-            score = soup.find('span', class_="score-label").text     
+                # Elements to display under anime statistics
+                score = soup.find('span', class_="score-label").text     
+                
+                # ranked = soup.find('div', attrs={'class': 'spaceit_pad po-r js-statistics-info di-ib', 'data-id': "info2"}).text
+                # ranked_str = re.findall(r'#([^#\s]*)', ranked)  # Extract double-quoted string values using regular expressions
+                # rstr = ' '.join(map(str,ranked_str))
+                rank = soup.find('span', attrs={'class': 'numbers ranked'}).text
+                rank_str = [text for text in re.findall(r'[^]*(?<!Ranked)[]*', rank) if text]  # Extract double-quoted string values using regular expressions
+                rst = ' '.join(map(str,rank_str))
+
+                popularity = soup.find('span', attrs={'class': 'numbers popularity'}).text
+                popular_str = [text for text in re.findall(r'[^]*(?<!Popularity)[]*', popularity) if text]  # Extract double-quoted string values using regular expressions
+                pstr = ' '.join(map(str,popular_str))
+
+                members = soup.find('span', attrs={'class': 'numbers members'}).text
+                member_str = [text for text in re.findall(r'[^]*(?<!Members)[]*', members) if text]  # Extract double-quoted string values using regular expressions
+                mstr = ' '.join(map(str,member_str))
+
+                favorites = soup.find('div', attrs={'class': 'spaceit_pad'}).text
+                # fav = favorites.find('')
+
+                synopsis = soup.find('div', attrs={'class': 'spaceit_pad'}).text
+
             
-            # ranked = soup.find('div', attrs={'class': 'spaceit_pad po-r js-statistics-info di-ib', 'data-id': "info2"}).text
-            # ranked_str = re.findall(r'#([^#\s]*)', ranked)  # Extract double-quoted string values using regular expressions
-            # rstr = ' '.join(map(str,ranked_str))
-            rank = soup.find('span', attrs={'class': 'numbers ranked'}).text
-            rank_str = [text for text in re.findall(r'[^]*(?<!Ranked)[]*', rank) if text]  # Extract double-quoted string values using regular expressions
-            rst = ' '.join(map(str,rank_str))
+            # Recommend button
+            is_clic = st.button("Recommends")
 
-            popularity = soup.find('span', attrs={'class': 'numbers popularity'}).text
-            popular_str = [text for text in re.findall(r'[^]*(?<!Popularity)[]*', popularity) if text]  # Extract double-quoted string values using regular expressions
-            pstr = ' '.join(map(str,popular_str))
+        st.text("")
+        st.text("")
+        if is_clic:
+            if anime_name in df_with_id['title'].values:
+                st.text("Here are a few similar animes recommendations  ◕⩊◕")
 
-            members = soup.find('span', attrs={'class': 'numbers members'}).text
-            member_str = [text for text in re.findall(r'[^]*(?<!Members)[]*', members) if text]  # Extract double-quoted string values using regular expressions
-            mstr = ' '.join(map(str,member_str))
+                # st.write(final_df)
+                st.dataframe(final_df,use_container_width=True)
+            else:
+                st.text("")
+                st.text("")
 
-            favorites = soup.find('div', attrs={'class': 'spaceit_pad'}).text
-            # fav = favorites.find('')
-
-            synopsis = soup.find('div', attrs={'class': 'spaceit_pad'}).text
-
-        
-        # Recommend button
-        is_clic = st.button("Recommends")
-
-    st.text("")
-    st.text("")
-    if is_clic:
-        if anime_name in df_with_id['title'].values:
-            st.text("Here are a few similar animes recommendations  ◕⩊◕")
-
-            # st.write(final_df)
-            st.dataframe(final_df,use_container_width=True)
-        else:
+            st.text("")
             st.text("")
             st.text("")
 
-        st.text("")
-        st.text("")
-        st.text("")
+            st.header(choice)
+            st.write(url)
+            with st.container():
+                # st.image(image)
+                # st.markdown("Scores:   {}".format(b,b))
+                st.metric("Scores: ", score)
 
-        st.header(choice)
-        st.write(url)
-        with st.container():
-            # st.image(image)
-            # st.markdown("Scores:   {}".format(b,b))
-            st.metric("Scores: ", score)
+                st.metric("Ranked", rst)
+                
+                st.metric("Popularity", pstr)
 
-            st.metric("Ranked", rst)
-            
-            st.metric("Popularity", pstr)
+                st.write("Members: ", mstr)
+                ''' '''
+                # st.write("Favourite: ", favorites)
 
-            st.write("Members: ", mstr)
-            ''' '''
-            # st.write("Favourite: ", favorites)
+                st.text(synopsis)
+        
 
-            st.text(synopsis)
+        st.markdown(
+            """
+            <style>
+            .streamlit-expanderHeader p {
+                font-sze: 33rem;
+            }
+            .stSelectbox [data-testid='stMarkdownContainer'] {
+                font-sze: 6rem;
+            }
+            .stSelectbox div[data-baseweb="select"] > div:first-child {
+                border-color: #2d408d;
+            }
+            .stHeadingContainer [data-testid='stHeading'] {
+                text-align: center;
+            }
+            .appview-container {
+                width: 100%;
+            }
+            </style>
+            """,
+            unsafe_allow_html=True,
+        )
     
-
-    st.markdown(
-        """
-        <style>
-        .streamlit-expanderHeader p {
-            font-sze: 33rem;
-        }
-        .stSelectbox [data-testid='stMarkdownContainer'] {
-            font-sze: 6rem;
-        }
-        .stSelectbox div[data-baseweb="select"] > div:first-child {
-            border-color: #2d408d;
-        }
-        .stHeadingContainer [data-testid='stHeading'] {
-            text-align: center;
-        }
-        .appview-container {
-            width: 100%;
-        }
-        </style>
-        """,
-        unsafe_allow_html=True,
-    )
+    if rad == "User ID page":
+        st.write("USER ID PAGE")
 
 
 with st.container():
